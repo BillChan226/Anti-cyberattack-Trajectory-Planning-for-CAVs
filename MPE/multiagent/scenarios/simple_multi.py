@@ -50,7 +50,7 @@ import numpy as np
 # from _mpe_utils.scenario import BaseScenario
 from multiagent.core import World, Agent, Landmark
 from multiagent.scenario import BaseScenario
-from _mpe_utils.simple_env import SimpleEnv, make_env
+#from _mpe_utils.simple_env import SimpleEnv, make_env
 
 # from .._mpe_utils.core import Agent, Landmark, World
 # from .._mpe_utils.scenario import BaseScenario
@@ -101,9 +101,10 @@ class Scenario(BaseScenario):
             landmark.collide = False
             landmark.movable = False
             landmark.size = 0.03
+        self.reset_world(world)
         return world
 
-    def reset_world(self, world, np_random):
+    def reset_world(self, world):
         # random properties for agents
         for i, agent in enumerate(world.agents):
             agent.color = np.array([0.85, 0.35, 0.35])
@@ -113,18 +114,18 @@ class Scenario(BaseScenario):
         # world.landmarks[0].color = np.array([0.75, 0.25, 0.25])
         for i, landmark in enumerate(world.landmarks):
             landmark.color = np.array([0.75, 0.15, 0.15])
-        goal = np_random.choice(world.landmarks)
+        goal = np.random.choice(world.landmarks)
         goal.color = np.array([0.15, 0.65, 0.15])
         for agent in world.agents:
             agent.goal_a = goal
 
         # set random initial states
         for agent in world.agents:
-            agent.state.p_pos = np_random.uniform(-1, +1, world.dim_p)
+            agent.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
             agent.state.p_vel = np.zeros(world.dim_p)
             agent.state.c = np.zeros(world.dim_c)
         for i, landmark in enumerate(world.landmarks):
-            landmark.state.p_pos = np_random.uniform(-1, +1, world.dim_p)
+            landmark.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
             landmark.state.p_vel = np.zeros(world.dim_p)
 
     def good_agents(self, world):
