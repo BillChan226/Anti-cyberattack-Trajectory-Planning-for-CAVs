@@ -94,6 +94,7 @@ class Scenario(BaseScenario):
             agent.collide = False
             agent.silent = True
             agent.size = 0.05
+            
         # add landmarks
         world.landmarks = [Landmark() for i in range(num_landmarks)]
         for i, landmark in enumerate(world.landmarks):
