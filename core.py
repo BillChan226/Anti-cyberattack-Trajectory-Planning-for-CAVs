@@ -118,8 +118,8 @@ class MLPActorCritic(nn.Module):
         if isinstance(action_space, Box):
             self.pi = MLPGaussianActor(obs_dim, action_space.shape[0], hidden_sizes, activation)
         elif isinstance(action_space, Discrete):
-            print("INIININ", action_space.n)
-            print("OBOBOBO", obs_dim)
+            #print("INIININ", action_space.n)
+            #print("OBOBOBO", obs_dim)
             self.pi = MLPCategoricalActor(obs_dim, action_space.n, hidden_sizes, activation)
 
         # build value function
@@ -128,14 +128,14 @@ class MLPActorCritic(nn.Module):
     def step(self, obs):
         with torch.no_grad():
             pi = self.pi._distribution(obs)
-            print("PI", pi)
+            #print("PI", pi)
             a = pi.sample()
-            print("action", a)
+            #print("action", a)
             logp_a = self.pi._log_prob_from_distribution(pi, a)
             v = self.v(obs)
-            if a.numpy() == 0: a=[1,0,0,0,0]
+            
         #return a.numpy(), v.numpy(), logp_a.numpy()
-        return a, v.numpy(), logp_a.numpy()
+        return a.numpy(), v.numpy(), logp_a.numpy()
 
     def act(self, obs):
         return self.step(obs)[0]

@@ -60,6 +60,7 @@ class PPOBuffer:
         assert self.ptr < self.max_size     # buffer has to have room so you can store
         self.obs_buf[self.ptr] = obs
         self.act_buf[self.ptr] = act
+        
         self.rew_buf[self.ptr] = rew
         self.val_buf[self.ptr] = val
         self.logp_buf[self.ptr] = logp
@@ -239,7 +240,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
 
     obs_dim = env.observation_space[0].shape
 
-    act_dim = 5#env.action_space.shape
+    act_dim = 1#env.action_space.shape
+
     print("ACCCCCCCCC", env.action_space[0])
     print("OBSSSSSSSS", env.observation_space)
 
@@ -262,6 +264,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         obs, act, adv, logp_old = data['obs'], data['act'], data['adv'], data['logp']
 
         # Policy loss
+        #print("obs",obs)
+        #print("act", act)
         pi, logp = ac.pi(obs, act)
         ratio = torch.exp(logp - logp_old)
         clip_adv = torch.clamp(ratio, 1-clip_ratio, 1+clip_ratio) * adv
@@ -273,12 +277,13 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         clipped = ratio.gt(1+clip_ratio) | ratio.lt(1-clip_ratio)
         clipfrac = torch.as_tensor(clipped, dtype=torch.float32).mean().item()
         pi_info = dict(kl=approx_kl, ent=ent, cf=clipfrac)
-
+        #print("pi loss calculated")
         return loss_pi, pi_info
 
     # Set up function for computing value loss
     def compute_loss_v(data):
         obs, ret = data['obs'], data['ret']
+        #print("v loss calculated")
         return ((ac.v(obs) - ret)**2).mean()
 
     # Set up optimizers for policy and value function
@@ -294,7 +299,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         pi_l_old, pi_info_old = compute_loss_pi(data)
         pi_l_old = pi_l_old.item()
         v_l_old = compute_loss_v(data).item()
-
+        
         # Train policy with multiple steps of gradient descent
         for i in range(train_pi_iters):
             pi_optimizer.zero_grad()
@@ -306,6 +311,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             loss_pi.backward()
             mpi_avg_grads(ac.pi)    # average grads across MPI processes
             pi_optimizer.step()
+        print("pi updated")
 
         logger.store(StopIter=i)
 
@@ -316,6 +322,7 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
             loss_v.backward()
             mpi_avg_grads(ac.v)    # average grads across MPI processes
             vf_optimizer.step()
+        print("v updated")
 
         # Log changes from update
         kl, ent, cf = pi_info['kl'], pi_info_old['ent'], pi_info['cf']
@@ -327,22 +334,36 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
     # Prepare for interaction with environment
     start_time = time.time()
     o, ep_ret, ep_len = env.reset(), 0, 0
-    a = [[0,0,0,0,0]]
+    a = [[0 for j in range(5)] for i in range(1)]
     # Main loop: collect experience in env and update/log each epoch
     for epoch in range(epochs):
         for t in range(local_steps_per_epoch):
-            print("OBSDIM", o[0])
-            action, v, logp = ac.step(torch.as_tensor(o[0], dtype=torch.float32))
-            print("action", action)
-            a[0] = action
-            print(a)
+            #print("OBSDIM", o[0])
+            o = o[0]
+            action, v, logp = ac.step(torch.as_tensor(o, dtype=torch.float32))
+            if action == 0: a=[[1,0,0,0,0]]
+            elif action == 1: a=[[0,1,0,0,0]]
+            elif action == 2: a=[[0,0,1,0,0]]
+            elif action == 3: a=[[0,0,0,1,0]]
+            elif action == 4: a=[[0,0,0,0,1]]
+            #print("action", action)
+            # a[0][0] = action[0]
+            # a[0][1] = action[1]
+            # a[0][2] = action[2]
+            # a[0][3] = action[3]
+            # a[0][4] = action[4]
+            # a[0][1] = action[1]
+            #print(a)
             next_o, r, d, _ = env.step(a)
-            print("done", d)
+            # print("done", d)
+            #print("reward", r)
+            r = r[0]
             ep_ret += r
             ep_len += 1
+            #a = action
 
             # save and log
-            buf.store(o, a, r, v, logp)
+            buf.store(o, action, r, v, logp)
             logger.store(VVals=v)
             
             # Update obs (critical!)
@@ -374,6 +395,8 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         # Perform PPO update!
         update()
 
+        print("updated")
+
         # Log info about epoch
         logger.log_tabular('Epoch', epoch)
         logger.log_tabular('EpRet', with_min_and_max=True)
@@ -399,7 +422,7 @@ if __name__ == '__main__':
     parser.add_argument('--l', type=int, default=2)
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--seed', '-s', type=int, default=0)
-    parser.add_argument('--cpu', type=int, default=1)
+    parser.add_argument('--cpu', type=int, default=4)
     parser.add_argument('--steps', type=int, default=4000)
     parser.add_argument('--epochs', type=int, default=50)
     parser.add_argument('--exp_name', type=str, default='ppo')
