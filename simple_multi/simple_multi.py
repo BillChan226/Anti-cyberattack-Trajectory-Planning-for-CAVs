@@ -42,37 +42,38 @@ simple_v2.env(max_cycles=25, continuous_actions=False)
 
 """
 import sys
-sys.path.append("./multiagent-particle-envs/multiagent")
+#sys.path.append("./multiagent-particle-envs/multiagent")
+sys.path.append("/home/gong112/anaconda3/envs/doggo/lib/python3.8/site-packages/pettingzoo/mpe/")
 import numpy as np
-#from gymnasium.utils import EzPickle
-#from pettingzoo.utils.conversions import parallel_wrapper_fn
+from gymnasium.utils import EzPickle
+from pettingzoo.utils.conversions import parallel_wrapper_fn
 # from _mpe_utils.core import Agent, Landmark, World
 # from _mpe_utils.scenario import BaseScenario
-from multiagent.core import World, Agent, Landmark
-from multiagent.scenario import BaseScenario
+# from multiagent.core import World, Agent, Landmark
+# from multiagent.scenario import BaseScenario
+# from _mpe_utils.simple_env import SimpleEnv, make_env
+
+from _mpe_utils.core import Agent, Landmark, World
+from _mpe_utils.scenario import BaseScenario
 from _mpe_utils.simple_env import SimpleEnv, make_env
 
-# from .._mpe_utils.core import Agent, Landmark, World
-# from .._mpe_utils.scenario import BaseScenario
-# from .._mpe_utils.simple_env import SimpleEnv, make_env
-
-# class raw_env(SimpleEnv, EzPickle):
-#     def __init__(self, N=1, max_cycles=25, continuous_actions=False, render_mode=None):
-#         EzPickle.__init__(self, N, max_cycles, continuous_actions, render_mode)
-#         scenario = Scenario()
-#         world = scenario.make_world(N)
-#         super().__init__(
-#             scenario=scenario,
-#             world=world,
-#             render_mode=render_mode,
-#             max_cycles=max_cycles,
-#             continuous_actions=continuous_actions,
-#         )
-#         self.metadata["name"] = "simple_multi_v2"
+class raw_env(SimpleEnv, EzPickle):
+    def __init__(self, N=1, max_cycles=25, continuous_actions=False, render_mode=None):
+        EzPickle.__init__(self, N, max_cycles, continuous_actions, render_mode)
+        scenario = Scenario()
+        world = scenario.make_world(N)
+        super().__init__(
+            scenario=scenario,
+            world=world,
+            render_mode=render_mode,
+            max_cycles=max_cycles,
+            continuous_actions=continuous_actions,
+        )
+        self.metadata["name"] = "simple_multi_v2"
 
 
-# env = make_env(raw_env)
-# parallel_env = parallel_wrapper_fn(env)
+env = make_env(raw_env)
+parallel_env = parallel_wrapper_fn(env)
 
 
 class Scenario(BaseScenario):
@@ -131,9 +132,9 @@ class Scenario(BaseScenario):
         return [agent for agent in world.agents if not agent.adversary]
 
 
-    def reward(self, agent, world):
-        dist2 = np.sum(np.square(agent.state.p_pos - world.landmarks[0].state.p_pos))
-        return -dist2
+    # def reward(self, agent, world):
+    #     dist2 = np.sum(np.square(agent.state.p_pos - world.landmarks[0].state.p_pos))
+    #     return -dist2
 
     def observation(self, agent, world):
         # get positions of all entities in this agent's reference frame
@@ -158,4 +159,49 @@ class Scenario(BaseScenario):
             )
         else:
             return np.concatenate(entity_pos + other_pos)
+
+
+    def reward(self, agent, world):
+        # Agents are rewarded based on minimum agent distance to each landmark
+        return self.adversary_reward(agent, world) if agent.adversary else self.agent_reward(agent, world)
+
+    def agent_reward(self, agent, world):
+        # Rewarded based on how close any good agent is to the goal landmark, and how far the adversary is from it
+        shaped_reward = True
+        shaped_adv_reward = True
+
+        # Calculate negative reward for adversary
+        adversary_agents = self.adversaries(world)
+        if shaped_adv_reward:  # distance-based adversary reward
+            adv_rew = sum([np.sqrt(np.sum(np.square(a.state.p_pos - a.goal_a.state.p_pos))) for a in adversary_agents])
+        else:  # proximity-based adversary reward (binary)
+            adv_rew = 0
+            for a in adversary_agents:
+                if np.sqrt(np.sum(np.square(a.state.p_pos - a.goal_a.state.p_pos))) < 2 * a.goal_a.size:
+                    adv_rew -= 5
+
+        # Calculate positive reward for agents
+        good_agents = self.good_agents(world)
+        if shaped_reward:  # distance-based agent reward
+            pos_rew = -min(
+                [np.sqrt(np.sum(np.square(a.state.p_pos - a.goal_a.state.p_pos))) for a in good_agents])
+        else:  # proximity-based agent reward (binary)
+            pos_rew = 0
+            if min([np.sqrt(np.sum(np.square(a.state.p_pos - a.goal_a.state.p_pos))) for a in good_agents]) \
+                    < 2 * agent.goal_a.size:
+                pos_rew += 5
+            pos_rew -= min(
+                [np.sqrt(np.sum(np.square(a.state.p_pos - a.goal_a.state.p_pos))) for a in good_agents])
+        return pos_rew + adv_rew
+
+    def adversary_reward(self, agent, world):
+        # Rewarded based on proximity to the goal landmark
+        shaped_reward = True
+        if shaped_reward:  # distance-based reward
+            return -np.sum(np.square(agent.state.p_pos - agent.goal_a.state.p_pos))
+        else:  # proximity-based reward (binary)
+            adv_rew = 0
+            if np.sqrt(np.sum(np.square(agent.state.p_pos - agent.goal_a.state.p_pos))) < 2 * agent.goal_a.size:
+                adv_rew += 5
+            return adv_rew
 

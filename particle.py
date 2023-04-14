@@ -277,13 +277,13 @@ def ppo(env_fn, actor_critic=core.MLPActorCritic, ac_kwargs=dict(), seed=0,
         clipped = ratio.gt(1+clip_ratio) | ratio.lt(1-clip_ratio)
         clipfrac = torch.as_tensor(clipped, dtype=torch.float32).mean().item()
         pi_info = dict(kl=approx_kl, ent=ent, cf=clipfrac)
-        #print("pi loss calculated")
+        print("pi loss calculated")
         return loss_pi, pi_info
 
     # Set up function for computing value loss
     def compute_loss_v(data):
         obs, ret = data['obs'], data['ret']
-        #print("v loss calculated")
+        print("v loss calculated")
         return ((ac.v(obs) - ret)**2).mean()
 
     # Set up optimizers for policy and value function
