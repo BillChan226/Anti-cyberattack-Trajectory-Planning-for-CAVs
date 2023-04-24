@@ -228,7 +228,7 @@ class Scenario(BaseScenario):
     def observation(self, agent, world):
         # get positions of all entities in this agent's reference frame
         entity_pos = []
-        self.obs_rate = 0.8
+        self.obs_rate = 0
         entity_pos.append(world.landmarks[0].state.p_pos - agent.state.p_pos)
         for i in range(len(world.landmarks)-1):
             if np.random.random(1)[0] < self.obs_rate:
@@ -267,15 +267,19 @@ class Scenario(BaseScenario):
 
     def reward(self, agent, world):
         # Agents are rewarded based on minimum agent distance to each landmark
-        return self.adversary_reward(agent, world) if agent.adversary else self.agent_reward(agent, world)
+        return (self.adversary_reward(agent, world) if agent.adversary else self.agent_reward(agent, world))/10
     
     def done(self, agent, world):
         #print("self.num_collision", self.num_collision)
         if np.sqrt(np.sum(np.square(agent.state.p_pos - agent.goal_a.state.p_pos))) < 2 * agent.goal_a.size:
             #print("success")
             return True
-        else:
+        if:
+            for obs in agent.obs_a:
+                if np.sqrt(np.sum(np.square(agent.state.p_pos - obs.state.p_pos))) < 1 * obs.size:
+                    return True
             #print(np.sqrt(np.sum(np.square(agent.state.p_pos - agent.goal_a.state.p_pos))))
+        else:
             return False
             
     def info(self, agent, world):

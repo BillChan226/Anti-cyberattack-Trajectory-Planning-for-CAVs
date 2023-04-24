@@ -6,6 +6,7 @@ from torch.utils.tensorboard import SummaryWriter
 import os, shutil
 from datetime import datetime
 import sys
+import pandas as pd
 #sys.path.append("./multiagent-particle-envs/multiagent")
 sys.path.append("/home/gong112/service_backup/work/zhaorun/multi_CAVs/")
 
@@ -37,7 +38,7 @@ parser.add_argument('--ModelIdex', type=int, default=300000, help='which model t
 
 parser.add_argument('--seed', type=int, default=209, help='random seed')
 parser.add_argument('--T_horizon', type=int, default=2048, help='lenth of long trajectory')
-parser.add_argument('--Max_train_steps', type=int, default=1e7, help='Max training steps')
+parser.add_argument('--Max_train_steps', type=int, default=1e6, help='Max training steps')
 parser.add_argument('--save_interval', type=int, default=1e5, help='Model saving interval, in steps.')
 parser.add_argument('--eval_interval', type=int, default=5e3, help='Model evaluating interval, in steps.')
 
@@ -246,9 +247,6 @@ def main():
                         writer.add_scalar('entropy', entropy, global_step=total_steps)
 
             '''record & log'''
-
-            
-
             if total_steps % eval_interval == 0:
                 #print("EVALUATING")
                 score, num_collision = evaluate_policy(eval_env, model, False)
@@ -258,6 +256,7 @@ def main():
                     collision_all.append(col_period)
                     inter.append(int(total_steps/1000))
                     period = 0
+                    col_period = 0
                 else:
                     period += 1
                 score_all.append(score)
@@ -274,17 +273,26 @@ def main():
             '''save model'''
             # if total_steps % save_interval==0:
             #     model.save(total_steps)
+    score_dict = {'steps': interval, 'scores': score_all}
+    test1=pd.DataFrame(score_dict)
+    test1.to_csv("./result/scores_00_2_obs")
     plt.figure(1)
     plt.plot(interval, score_all)
+    plt.title('Averaged Scores with 0.0 Observability 2 Obstacles')
     plt.xlabel('total time steps')
     plt.ylabel('score')
-    plt.savefig("returns")
+    plt.savefig("./result/figures/scores_00_2_obs")
+
+    col_dict = {'steps': inter, 'col': collision_all}
+    test2=pd.DataFrame(col_dict)
+    test2.to_csv("./result/col_00_2_obs")
 
     plt.figure(2)
     plt.plot(inter, collision_all)
+    plt.title('Averaged Collision with 0.0 Observability 2 Obstacles')
     plt.xlabel('total time steps')
     plt.ylabel('number of collisions')
-    plt.savefig("collision")
+    plt.savefig("./result/figures/col_00_2_obs")
 
     env.close()
     eval_env.close()
