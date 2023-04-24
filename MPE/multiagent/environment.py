@@ -131,6 +131,7 @@ class MultiAgentEnv(gym.Env):
     # unused right now -- agents are allowed to go beyond the viewing screen
     def _get_done(self, agent):
         if self.done_callback is None:
+            
             return False
         return self.done_callback(agent, self.world)
 

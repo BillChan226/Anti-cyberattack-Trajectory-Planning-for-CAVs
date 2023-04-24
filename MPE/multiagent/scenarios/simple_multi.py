@@ -82,7 +82,7 @@ class Scenario(BaseScenario):
         num_agents = N
         world.num_agents = num_agents
         num_adversaries = 0
-        num_landmarks = max(num_agents - 1, 1)
+        num_landmarks = max(num_agents - 1, 2)
         # add agents
         world.agents = [Agent() for i in range(num_agents)]
         for i, agent in enumerate(world.agents):
@@ -105,37 +105,115 @@ class Scenario(BaseScenario):
         self.reset_world(world)
         return world
 
-    def reset_world(self, world):
-        # random properties for agents
-        for i, agent in enumerate(world.agents):
-            agent.color = np.array([0.85, 0.35, 0.35])
-        # random properties for landmarks
-        # for i, landmark in enumerate(world.landmarks):
-        #     landmark.color = np.array([0.75, 0.75, 0.75])
-        # world.landmarks[0].color = np.array([0.75, 0.25, 0.25])
-        for i, landmark in enumerate(world.landmarks):
-            landmark.color = np.array([0.75, 0.15, 0.15])
-        goal = np.random.choice(world.landmarks)
-        goal.color = np.array([0.15, 0.65, 0.15])
-        for agent in world.agents:
-            agent.goal_a = goal
+    # def reset_world(self, world):
+    #     # random properties for agents
+    #     for i, agent in enumerate(world.agents):
+    #         agent.color = np.array([0.85, 0.35, 0.35])
+    #     # random properties for landmarks
+    #     # for i, landmark in enumerate(world.landmarks):
+    #     #     landmark.color = np.array([0.75, 0.75, 0.75])
+    #     # world.landmarks[0].color = np.array([0.75, 0.25, 0.25])
+    #     for i, landmark in enumerate(world.landmarks):
+    #         landmark.color = np.array([0.75, 0.15, 0.15])
+    #     goal = np.random.choice(world.landmarks)
+    #     goal.color = np.array([0.15, 0.65, 0.15])
+    #     for agent in world.agents:
+    #         agent.goal_a = goal
 
-        # set random initial states
-        for agent in world.agents:
-            agent.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
-            agent.state.p_vel = np.zeros(world.dim_p)
-            agent.state.c = np.zeros(world.dim_c)
-        for i, landmark in enumerate(world.landmarks):
-            landmark.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
-            landmark.state.p_vel = np.zeros(world.dim_p)
+    #     # set random initial states
+    #     for agent in world.agents:
+    #         agent.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
+    #         agent.state.p_vel = np.zeros(world.dim_p)
+    #         agent.state.c = np.zeros(world.dim_c)
+    #     for i, landmark in enumerate(world.landmarks):
+    #         landmark.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
+    #         landmark.state.p_vel = np.zeros(world.dim_p)
+
+    # def good_agents(self, world):
+    #     return [agent for agent in world.agents if not agent.adversary]
+
+
+    # def reward(self, agent, world):
+    #     dist2 = np.sum(np.square(agent.state.p_pos - world.landmarks[0].state.p_pos))
+    #     return -dist2
+
+    # def observation(self, agent, world):
+    #     # get positions of all entities in this agent's reference frame
+    #     entity_pos = []
+    #     for entity in world.landmarks:
+    #         entity_pos.append(entity.state.p_pos - agent.state.p_pos)
+    #         # entity colors
+    #     entity_color = []
+    #     for entity in world.landmarks:
+    #         entity_color.append(entity.color)
+    #     #return np.concatenate([agent.state.p_vel] + entity_pos)
+    #     # communication of all other agents
+    #     other_pos = []
+    #     for other in world.agents:
+    #         if other is agent:
+    #             continue
+    #         other_pos.append(other.state.p_pos - agent.state.p_pos)
+
+    #     if not agent.adversary:
+    #         return np.concatenate(
+    #             [agent.goal_a.state.p_pos - agent.state.p_pos] + entity_pos + other_pos
+    #         )
+    #     else:
+    #         return np.concatenate(entity_pos + other_pos)
+
+
+
+    def reset_world(self, world):
+            # random properties for agents
+            # if self.num_collision != 0:
+            #     print("number of collision", self.num_collision)
+            #logger.write(self, step_type = "Train", step = 0, data = {"Collision": self.num_collision})
+            #self.collision.append(self.num_collision)
+            #print(len(self.collision) % 100)
+            # if len(self.collision) % 100 == 9:
+            #     print("save")
+            #     plt.plot(self.collision)
+                # plt.savefig("./number of collision.jpg")
+
+            self.num_collision = 0
+            for i, agent in enumerate(world.agents):
+                agent.color = np.array([0.85, 0.35, 0.35])
+            # random properties for landmarks
+            # for i, landmark in enumerate(world.landmarks):
+            #     landmark.color = np.array([0.75, 0.75, 0.75])
+            # world.landmarks[0].color = np.array([0.75, 0.25, 0.25])
+            for i, landmark in enumerate(world.landmarks):
+                landmark.color = np.array([0.75, 0.15, 0.15])
+            #print("landmarks", world.landmarks)
+            goal = world.landmarks[0]
+            obstacle = world.landmarks[1]
+            #goal = np_random.choice(world.landmarks)
+            goal.color = np.array([0.15, 0.65, 0.15])
+            obstacle.color = np.array([0.5, 0.45, 0.25])
+            obstacle.size = 0.05
+            for agent in world.agents:
+                agent.goal_a = goal
+                agent.obs_a = obstacle
+
+            # set random initial states
+            for agent in world.agents:
+                agent.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
+                agent.state.p_vel = np.zeros(world.dim_p)
+                agent.state.c = np.zeros(world.dim_c)
+            for i, landmark in enumerate(world.landmarks):
+                landmark.state.p_pos = np.random.uniform(-1, +1, world.dim_p)
+                landmark.state.p_vel = np.zeros(world.dim_p)
 
     def good_agents(self, world):
         return [agent for agent in world.agents if not agent.adversary]
 
+    # return all adversarial agents
+    def adversaries(self, world):
+        return [agent for agent in world.agents if agent.adversary]
 
-    def reward(self, agent, world):
-        dist2 = np.sum(np.square(agent.state.p_pos - world.landmarks[0].state.p_pos))
-        return -dist2
+    # def reward(self, agent, world):
+    #     dist2 = np.sum(np.square(agent.state.p_pos - world.landmarks[0].state.p_pos))
+    #     return -dist2
 
     def observation(self, agent, world):
         # get positions of all entities in this agent's reference frame
@@ -160,4 +238,74 @@ class Scenario(BaseScenario):
             )
         else:
             return np.concatenate(entity_pos + other_pos)
+
+
+    def reward(self, agent, world):
+        # Agents are rewarded based on minimum agent distance to each landmark
+        return self.adversary_reward(agent, world) if agent.adversary else self.agent_reward(agent, world)
+    
+    def done(self, agent, world):
+        if np.sqrt(np.sum(np.square(agent.state.p_pos - agent.goal_a.state.p_pos))) < 2 * agent.goal_a.size:
+            print("success")
+            return True
+        else:
+            #print(np.sqrt(np.sum(np.square(agent.state.p_pos - agent.goal_a.state.p_pos))))
+            return False
+            
+
+    def agent_reward(self, agent, world):
+        # Rewarded based on how close any good agent is to the goal landmark, and how far the adversary is from it
+        shaped_reward = False
+        shaped_adv_reward = True
+
+        # Calculate negative reward for adversary
+        adversary_agents = self.adversaries(world)
+        if shaped_adv_reward:  # distance-based adversary reward
+            #print("adversary agent mistakenly activated")
+            adv_rew = sum([np.sqrt(np.sum(np.square(a.state.p_pos - a.goal_a.state.p_pos))) for a in adversary_agents])
+        else:  # proximity-based adversary reward (binary)
+            adv_rew = 0
+            for a in adversary_agents:
+                if np.sqrt(np.sum(np.square(a.state.p_pos - a.goal_a.state.p_pos))) < 2 * a.goal_a.size:
+                    adv_rew -= 5
+
+        # Calculate positive reward for agents
+        good_agents = self.good_agents(world)
+        if shaped_reward:  # distance-based agent reward
+            # pos_rew = -min(
+            #     [np.sqrt(np.sum(np.square(a.state.p_pos - a.goal_a.state.p_pos))) for a in good_agents])
+            pos_rew = -np.sqrt(np.sum(np.square(agent.state.p_pos - agent.goal_a.state.p_pos)))
+                    
+        else:  # proximity-based agent reward (binary)
+            pos_rew = 0
+            if min([np.sqrt(np.sum(np.square(a.state.p_pos - a.goal_a.state.p_pos))) for a in good_agents]) \
+                    < 2 * agent.goal_a.size:
+                pos_rew += 5
+            pos_rew -= min(
+                [np.sqrt(np.sum(np.square(a.state.p_pos - a.goal_a.state.p_pos))) for a in good_agents])
+
+        # Calculate negative reward for obstacle collision
+        obs_rew = 0
+        # if min([np.sqrt(np.sum(np.square(a.state.p_pos - a.obs_a.state.p_pos))) for a in good_agents]) \
+        #             < 2 * agent.obs_a.size:
+        #print("WHAT!!")
+        if np.sqrt(np.sum(np.square(agent.state.p_pos - agent.obs_a.state.p_pos))) < 1 * agent.obs_a.size:
+            obs_rew -= 100
+            self.num_collision += 1
+            print("bumped")
+        
+        reward = pos_rew + obs_rew
+        #print("reward", reward)
+        return reward #adv_rew
+
+    def adversary_reward(self, agent, world):
+        # Rewarded based on proximity to the goal landmark
+        shaped_reward = True
+        if shaped_reward:  # distance-based reward
+            return -np.sum(np.square(agent.state.p_pos - agent.goal_a.state.p_pos))
+        else:  # proximity-based reward (binary)
+            adv_rew = 0
+            if np.sqrt(np.sum(np.square(agent.state.p_pos - agent.goal_a.state.p_pos))) < 2 * agent.goal_a.size:
+                adv_rew += 5
+            return adv_rew
 

@@ -350,6 +350,8 @@ from tianshou.policy import BasePolicy, DQNPolicy, MultiAgentPolicyManager, Rand
 from tianshou.trainer import offpolicy_trainer
 from tianshou.utils.net.common import Net
 import simple_multi_v2
+import matplotlib.pyplot as plt
+from tianshou.utils import BaseLogger as logger
 #from pettingzoo.classic import tictactoe_v3
 
 
@@ -370,7 +372,7 @@ def _get_agents(
         net = Net(
             # state_shape=env.observation_space["observation"].shape
             # or env.observation_space["observation"].n,
-            4,
+            6,
             action_shape=env.action_space.shape or env.action_space.n,
             hidden_sizes=[128, 128, 128, 128],
             device="cuda" if torch.cuda.is_available() else "cpu",
@@ -396,7 +398,8 @@ def _get_agents(
 
 def _get_env():
     """This function is needed to provide callables for DummyVectorEnv."""
-    return PettingZooEnv(simple_multi_v2.env(render_mode="human"))
+    #return PettingZooEnv(simple_multi_v2.env(render_mode="human"))
+    return PettingZooEnv(simple_multi_v2.env())
 
 
 if __name__ == "__main__":
@@ -448,7 +451,7 @@ if __name__ == "__main__":
         policy=policy,
         train_collector=train_collector,
         test_collector=test_collector,
-        max_epoch=100,
+        max_epoch=1000,
         step_per_epoch=1000,
         step_per_collect=50,
         episode_per_test=10,
@@ -465,3 +468,6 @@ if __name__ == "__main__":
     # return result, policy.policies[agents[1]]
     print(f"\n==========Result==========\n{result}")
     print("\n(the trained policy can be accessed via policy.policies[agents[1]])")
+    # plt.plot(train_envs.collision)
+    # plt.savefig("number of collision.jpg")
+    logger.log_train_data

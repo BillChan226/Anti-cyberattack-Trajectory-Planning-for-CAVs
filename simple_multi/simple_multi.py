@@ -57,6 +57,10 @@ from _mpe_utils.core import Agent, Landmark, World
 from _mpe_utils.scenario import BaseScenario
 from _mpe_utils.simple_env import SimpleEnv, make_env
 
+from tianshou.utils import BaseLogger as logger
+
+import matplotlib.pyplot as plt
+
 class raw_env(SimpleEnv, EzPickle):
     def __init__(self, N=1, max_cycles=25, continuous_actions=False, render_mode=None):
         EzPickle.__init__(self, N, max_cycles, continuous_actions, render_mode)
@@ -78,12 +82,14 @@ parallel_env = parallel_wrapper_fn(env)
 
 class Scenario(BaseScenario):
     def make_world(self, N=1):
+        self.num_collision = 0
+        self.collision = []
         world = World()
         world.dim_c = 2
         num_agents = N
         world.num_agents = num_agents
         num_adversaries = 0
-        num_landmarks = max(num_agents - 1, 1)
+        num_landmarks = max(num_agents - 1, 2)
         # add agents
         world.agents = [Agent() for i in range(num_agents)]
         for i, agent in enumerate(world.agents):
@@ -106,6 +112,17 @@ class Scenario(BaseScenario):
 
     def reset_world(self, world, np_random):
         # random properties for agents
+        # if self.num_collision != 0:
+        #     print("number of collision", self.num_collision)
+        #logger.write(self, step_type = "Train", step = 0, data = {"Collision": self.num_collision})
+        self.collision.append(self.num_collision)
+        #print(len(self.collision) % 100)
+        # if len(self.collision) % 100 == 9:
+        #     print("save")
+        #     plt.plot(self.collision)
+            # plt.savefig("./number of collision.jpg")
+
+        self.num_collision = 0
         for i, agent in enumerate(world.agents):
             agent.color = np.array([0.85, 0.35, 0.35])
         # random properties for landmarks
@@ -114,10 +131,16 @@ class Scenario(BaseScenario):
         # world.landmarks[0].color = np.array([0.75, 0.25, 0.25])
         for i, landmark in enumerate(world.landmarks):
             landmark.color = np.array([0.75, 0.15, 0.15])
-        goal = np_random.choice(world.landmarks)
+        #print("landmarks", world.landmarks)
+        goal = world.landmarks[0]
+        obstacle = world.landmarks[1]
+        #goal = np_random.choice(world.landmarks)
         goal.color = np.array([0.15, 0.65, 0.15])
+        obstacle.color = np.array([0.5, 0.45, 0.25])
+        obstacle.size = 0.05
         for agent in world.agents:
             agent.goal_a = goal
+            agent.obs_a = obstacle
 
         # set random initial states
         for agent in world.agents:
@@ -131,6 +154,9 @@ class Scenario(BaseScenario):
     def good_agents(self, world):
         return [agent for agent in world.agents if not agent.adversary]
 
+    # return all adversarial agents
+    def adversaries(self, world):
+        return [agent for agent in world.agents if agent.adversary]
 
     # def reward(self, agent, world):
     #     dist2 = np.sum(np.square(agent.state.p_pos - world.landmarks[0].state.p_pos))
@@ -173,6 +199,7 @@ class Scenario(BaseScenario):
         # Calculate negative reward for adversary
         adversary_agents = self.adversaries(world)
         if shaped_adv_reward:  # distance-based adversary reward
+            #print("adversary agent mistakenly activated")
             adv_rew = sum([np.sqrt(np.sum(np.square(a.state.p_pos - a.goal_a.state.p_pos))) for a in adversary_agents])
         else:  # proximity-based adversary reward (binary)
             adv_rew = 0
@@ -183,8 +210,10 @@ class Scenario(BaseScenario):
         # Calculate positive reward for agents
         good_agents = self.good_agents(world)
         if shaped_reward:  # distance-based agent reward
-            pos_rew = -min(
-                [np.sqrt(np.sum(np.square(a.state.p_pos - a.goal_a.state.p_pos))) for a in good_agents])
+            # pos_rew = -min(
+            #     [np.sqrt(np.sum(np.square(a.state.p_pos - a.goal_a.state.p_pos))) for a in good_agents])
+            pos_rew = -np.sqrt(np.sum(np.square(agent.state.p_pos - agent.goal_a.state.p_pos)))
+                 
         else:  # proximity-based agent reward (binary)
             pos_rew = 0
             if min([np.sqrt(np.sum(np.square(a.state.p_pos - a.goal_a.state.p_pos))) for a in good_agents]) \
@@ -192,7 +221,16 @@ class Scenario(BaseScenario):
                 pos_rew += 5
             pos_rew -= min(
                 [np.sqrt(np.sum(np.square(a.state.p_pos - a.goal_a.state.p_pos))) for a in good_agents])
-        return pos_rew + adv_rew
+
+        # Calculate negative reward for obstacle collision
+        obs_rew = 0
+        # if min([np.sqrt(np.sum(np.square(a.state.p_pos - a.obs_a.state.p_pos))) for a in good_agents]) \
+        #             < 2 * agent.obs_a.size:
+        if np.sqrt(np.sum(np.square(agent.state.p_pos - agent.obs_a.state.p_pos))) < 0.6 * agent.obs_a.size:
+            obs_rew -= 10
+            self.num_collision += 1
+            #print("bumped")
+        return pos_rew + obs_rew #adv_rew
 
     def adversary_reward(self, agent, world):
         # Rewarded based on proximity to the goal landmark
