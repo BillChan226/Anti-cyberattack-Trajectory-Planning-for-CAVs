@@ -11,7 +11,8 @@ sys.path.append("/home/gong112/service_backup/work/zhaorun/multi_CAVs/")
 
 import argparse
 from MPE.make_env import make_env
-import simple_multi_v2
+#import simple_multi_v2
+import matplotlib.pyplot as plt
 
 
 
@@ -36,7 +37,7 @@ parser.add_argument('--ModelIdex', type=int, default=300000, help='which model t
 
 parser.add_argument('--seed', type=int, default=209, help='random seed')
 parser.add_argument('--T_horizon', type=int, default=2048, help='lenth of long trajectory')
-parser.add_argument('--Max_train_steps', type=int, default=5e7, help='Max training steps')
+parser.add_argument('--Max_train_steps', type=int, default=1e7, help='Max training steps')
 parser.add_argument('--save_interval', type=int, default=1e5, help='Model saving interval, in steps.')
 parser.add_argument('--eval_interval', type=int, default=5e3, help='Model evaluating interval, in steps.')
 
@@ -58,6 +59,7 @@ print(opt)
 def evaluate_policy(env, model, render):
     scores = 0
     turns = 3
+    num_collision = 0
     for j in range(turns):
         s, done, ep_r, steps = env.reset(), False, 0, 0
 
@@ -79,6 +81,10 @@ def evaluate_policy(env, model, render):
             #print("done", done[0])
 
             done = done[0]
+            
+            # if r_flag:
+            #     print("done[0][1]", done[0][1])
+            #     num_collision += done[0][1]
             #print("done", done)
 
             r = r[0]
@@ -86,16 +92,23 @@ def evaluate_policy(env, model, render):
             ep_r += r
             steps += 1
             s = s_prime
-
+            #print("info", info)
+            # if info['n'][0] != 0:
+            #     print
+            if done:
+                #print("DONE")
+                num_collision += info['n'][0]
+                #print("lalala:", num_collision)
             s = s[0]
             if render:
                 env.render()
-                
-            if step_e >= 1000:
+            #print("info", info)
+            if step_e >= 1500:
+                num_collision += info['n'][0]
                 break
 
         scores += ep_r
-    return scores/turns
+    return scores/turns, num_collision
 
 def main():
     #EnvName = ['CartPole-v1','LunarLander-v2']
@@ -164,6 +177,13 @@ def main():
 
     traj_lenth = 0
     total_steps = 0
+    score_all = []
+    interval = []
+    collision_all = []
+    #num_collision = []
+    col_period = 0
+    inter = []
+    period = 0
     while total_steps < Max_train_steps:
         s, done, steps, ep_r = env.reset(), False, 0, 0
         s = s[0]
@@ -187,19 +207,27 @@ def main():
             elif a == 4: action=[[0,0,0,0,1]]
 
             s_prime, r, done, info = env.step(action)
+            
+            #print("info", info)
 
+            #print(done)
             s_prime = s_prime[0]
 
             r = r[0]
 
             done = done[0]
+            # if done == True:
+            #     print("steps", steps)
+            # if done:
+            #     num_collision.append(info['n'][0])
             
-            if (done and steps != max_e_steps):
-                if EnvIdex == 1:
-                    if r <=-100: r = -30  #good for LunarLander
-                dw = True  #dw: dead and win
-            else:
-                dw = False
+            # if (done and steps != max_e_steps):
+            #     if EnvIdex == 1:
+            #         if r <=-100: r = -30  #good for LunarLander
+            #     dw = True  #dw: dead and win
+            # else:
+            #     dw = False
+            dw = False
 
             model.put_data((s, a, r, s_prime, pi_a, done, dw))
             s = s_prime
@@ -209,7 +237,7 @@ def main():
             #print("traj_lenth!", traj_lenth)
             if not render:
                 if traj_lenth % T_horizon == 0:
-                    print("training!")
+                    #print("training!")
                     a_loss, c_loss, entropy = model.train()
                     traj_lenth = 0
                     if write:
@@ -218,9 +246,24 @@ def main():
                         writer.add_scalar('entropy', entropy, global_step=total_steps)
 
             '''record & log'''
+
+            
+
             if total_steps % eval_interval == 0:
                 #print("EVALUATING")
-                score = evaluate_policy(eval_env, model, False)
+                score, num_collision = evaluate_policy(eval_env, model, False)
+                col_period += num_collision
+
+                if period == 5:
+                    collision_all.append(col_period)
+                    inter.append(int(total_steps/1000))
+                    period = 0
+                else:
+                    period += 1
+                score_all.append(score)
+                interval.append(int(total_steps/1000))
+                print("num_collision:", num_collision)
+                #print("there were average" , num_collision, "collsions in the last 3 episodes")
                 if write:
                     writer.add_scalar('ep_r', score, global_step=total_steps)
                 print('EnvName:',BrifEnvName[EnvIdex],'seed:',seed,'steps: {}k'.format(int(total_steps/1000)),'score:', score)
@@ -229,8 +272,19 @@ def main():
             #print("total_steps", total_steps)
 
             '''save model'''
-            if total_steps % save_interval==0:
-                model.save(total_steps)
+            # if total_steps % save_interval==0:
+            #     model.save(total_steps)
+    plt.figure(1)
+    plt.plot(interval, score_all)
+    plt.xlabel('total time steps')
+    plt.ylabel('score')
+    plt.savefig("returns")
+
+    plt.figure(2)
+    plt.plot(inter, collision_all)
+    plt.xlabel('total time steps')
+    plt.ylabel('number of collisions')
+    plt.savefig("collision")
 
     env.close()
     eval_env.close()

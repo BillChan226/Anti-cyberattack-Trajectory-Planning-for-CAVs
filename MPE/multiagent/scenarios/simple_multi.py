@@ -82,7 +82,7 @@ class Scenario(BaseScenario):
         num_agents = N
         world.num_agents = num_agents
         num_adversaries = 0
-        num_landmarks = max(num_agents - 1, 2)
+        num_landmarks = max(num_agents - 1, 3)
         # add agents
         world.agents = [Agent() for i in range(num_agents)]
         for i, agent in enumerate(world.agents):
@@ -186,14 +186,24 @@ class Scenario(BaseScenario):
                 landmark.color = np.array([0.75, 0.15, 0.15])
             #print("landmarks", world.landmarks)
             goal = world.landmarks[0]
-            obstacle = world.landmarks[1]
+            obs = []
+            for i in range(len(world.landmarks)-1):
+                #print("I", i)
+                world.landmarks[i+1].color = np.array([0.5, 0.45, 0.25])
+                world.landmarks[i+1].size = 0.05
+                obs.append(world.landmarks[i+1])
+            # obstacle = world.landmarks[1]
+            # obstacle2 = world.landmarks[2]
             #goal = np_random.choice(world.landmarks)
             goal.color = np.array([0.15, 0.65, 0.15])
-            obstacle.color = np.array([0.5, 0.45, 0.25])
-            obstacle.size = 0.05
+            # obstacle1.color = np.array([0.5, 0.45, 0.25])
+            # obstacle2.color = np.array([0.5, 0.5, 0.3])
+            # obstacle1.size = 0.05
+            # obstacle2.size = 0.05
             for agent in world.agents:
                 agent.goal_a = goal
-                agent.obs_a = obstacle
+                agent.obs_a = obs
+                # agent.obs_a2 = obstacle2
 
             # set random initial states
             for agent in world.agents:
@@ -218,8 +228,23 @@ class Scenario(BaseScenario):
     def observation(self, agent, world):
         # get positions of all entities in this agent's reference frame
         entity_pos = []
-        for entity in world.landmarks:
-            entity_pos.append(entity.state.p_pos - agent.state.p_pos)
+        self.obs_rate = 0.8
+        entity_pos.append(world.landmarks[0].state.p_pos - agent.state.p_pos)
+        for i in range(len(world.landmarks)-1):
+            if np.random.random(1)[0] < self.obs_rate:
+                #print("np.random.random(1)[0]", np.random.random(1)[0])
+                obs_pos = (world.landmarks[i+1].state.p_pos - agent.state.p_pos).tolist()
+                #obs_pos.append(world.landmarks[i+1].state.p_pos - agent.state.p_pos)
+                obs_pos.append(1)
+                #print("obs_pos", obs_pos)
+                #entity_pos.append(world.landmarks[i+1].state.p_pos - agent.state.p_pos) 
+                entity_pos.append(obs_pos) 
+            else:
+                entity_pos.append([-1,-1,0]) 
+
+        # for entity in world.landmarks:
+
+        #     entity_pos.append(entity.state.p_pos - agent.state.p_pos)
             # entity colors
         entity_color = []
         for entity in world.landmarks:
@@ -245,13 +270,18 @@ class Scenario(BaseScenario):
         return self.adversary_reward(agent, world) if agent.adversary else self.agent_reward(agent, world)
     
     def done(self, agent, world):
+        #print("self.num_collision", self.num_collision)
         if np.sqrt(np.sum(np.square(agent.state.p_pos - agent.goal_a.state.p_pos))) < 2 * agent.goal_a.size:
-            print("success")
+            #print("success")
             return True
         else:
             #print(np.sqrt(np.sum(np.square(agent.state.p_pos - agent.goal_a.state.p_pos))))
             return False
             
+    def info(self, agent, world):
+        # if self.num_collision != 0:
+        #     print("LALALALALAL")
+        return self.num_collision
 
     def agent_reward(self, agent, world):
         # Rewarded based on how close any good agent is to the goal landmark, and how far the adversary is from it
@@ -266,7 +296,7 @@ class Scenario(BaseScenario):
         else:  # proximity-based adversary reward (binary)
             adv_rew = 0
             for a in adversary_agents:
-                if np.sqrt(np.sum(np.square(a.state.p_pos - a.goal_a.state.p_pos))) < 2 * a.goal_a.size:
+                if np.sqrt(np.sum(np.square(a.state.p_pos - a.goal_a.state.p_pos))) < 1 * a.goal_a.size:
                     adv_rew -= 5
 
         # Calculate positive reward for agents
@@ -289,10 +319,20 @@ class Scenario(BaseScenario):
         # if min([np.sqrt(np.sum(np.square(a.state.p_pos - a.obs_a.state.p_pos))) for a in good_agents]) \
         #             < 2 * agent.obs_a.size:
         #print("WHAT!!")
-        if np.sqrt(np.sum(np.square(agent.state.p_pos - agent.obs_a.state.p_pos))) < 1 * agent.obs_a.size:
-            obs_rew -= 100
-            self.num_collision += 1
-            print("bumped")
+        for obs in agent.obs_a:
+            if np.sqrt(np.sum(np.square(agent.state.p_pos - obs.state.p_pos))) < 2 * obs.size:
+                obs_rew -= 100
+                self.num_collision += 1
+
+        # if np.sqrt(np.sum(np.square(agent.state.p_pos - agent.obs_a2.state.p_pos))) < 3 * agent.obs_a2.size:
+        #     obs_rew -= 10
+        #     self.num_collision += 1
+
+        # if np.sqrt(np.sum(np.square(agent.state.p_pos - agent.obs_a3.state.p_pos))) < 3 * agent.obs_a2.size:
+        #     obs_rew -= 10
+        #     self.num_collision += 1
+            #print("bumped")
+            #print("self.num_collision", self.num_collision)
         
         reward = pos_rew + obs_rew
         #print("reward", reward)

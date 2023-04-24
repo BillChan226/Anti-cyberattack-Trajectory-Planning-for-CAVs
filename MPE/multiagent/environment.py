@@ -95,7 +95,7 @@ class MultiAgentEnv(gym.Env):
             done_n.append(self._get_done(agent))
 
             info_n['n'].append(self._get_info(agent))
-
+        #print("info_n['n']", info_n['n'])
         # all agents get total reward in cooperative case
         reward = np.sum(reward_n)
         if self.shared_reward:
@@ -119,6 +119,7 @@ class MultiAgentEnv(gym.Env):
     def _get_info(self, agent):
         if self.info_callback is None:
             return {}
+        #print("self.info_callback(agent, self.world)", self.info_callback(agent, self.world))
         return self.info_callback(agent, self.world)
 
     # get observation for a particular agent
@@ -131,7 +132,7 @@ class MultiAgentEnv(gym.Env):
     # unused right now -- agents are allowed to go beyond the viewing screen
     def _get_done(self, agent):
         if self.done_callback is None:
-            
+
             return False
         return self.done_callback(agent, self.world)
 
