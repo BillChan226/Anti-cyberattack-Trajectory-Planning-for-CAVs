@@ -76,7 +76,7 @@ from multiagent.scenario import BaseScenario
 
 
 class Scenario(BaseScenario):
-    def make_world(self, N=1):
+    def make_world(self, N=2):
         world = World()
         world.dim_c = 2
         num_agents = N
@@ -228,7 +228,7 @@ class Scenario(BaseScenario):
     def observation(self, agent, world):
         # get positions of all entities in this agent's reference frame
         entity_pos = []
-        self.obs_rate = 0
+        self.obs_rate = 1
         entity_pos.append(world.landmarks[0].state.p_pos - agent.state.p_pos)
         for i in range(len(world.landmarks)-1):
             if np.random.random(1)[0] < self.obs_rate:
@@ -274,13 +274,13 @@ class Scenario(BaseScenario):
         if np.sqrt(np.sum(np.square(agent.state.p_pos - agent.goal_a.state.p_pos))) < 2 * agent.goal_a.size:
             #print("success")
             return True
-        if:
+        else:
             for obs in agent.obs_a:
                 if np.sqrt(np.sum(np.square(agent.state.p_pos - obs.state.p_pos))) < 1 * obs.size:
                     return True
             #print(np.sqrt(np.sum(np.square(agent.state.p_pos - agent.goal_a.state.p_pos))))
-        else:
-            return False
+        
+        return False
             
     def info(self, agent, world):
         # if self.num_collision != 0:
@@ -324,6 +324,8 @@ class Scenario(BaseScenario):
         #             < 2 * agent.obs_a.size:
         #print("WHAT!!")
         for obs in agent.obs_a:
+            if np.sqrt(np.sum(np.square(agent.state.p_pos - obs.state.p_pos))) < 8 * obs.size:
+                obs_rew += np.sqrt(np.sum(np.square(agent.state.p_pos - obs.state.p_pos)))/5
             if np.sqrt(np.sum(np.square(agent.state.p_pos - obs.state.p_pos))) < 2 * obs.size:
                 obs_rew -= 100
                 self.num_collision += 1

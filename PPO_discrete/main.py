@@ -61,21 +61,31 @@ def evaluate_policy(env, model, render):
     scores = 0
     turns = 3
     num_collision = 0
+    num_agent = 1
     for j in range(turns):
         s, done, ep_r, steps = env.reset(), False, 0, 0
-
-        s = s[0]
         step_e = 0
+        # for i in range(num_agent):
+        #     s = s[0]
+        
         while not done:
             # Take deterministic actions at test time
             step_e += 1
-            a, pi_a = model.evaluate(torch.from_numpy(s).float().to(device))
+            action = []
+            for i in range(num_agent):
+                a, pi_a = model.evaluate(torch.from_numpy(s[i]).float().to(device))
 
-            if a == 0: action=[[1,0,0,0,0]]
-            elif a == 1: action=[[0,1,0,0,0]]
-            elif a == 2: action=[[0,0,1,0,0]]
-            elif a == 3: action=[[0,0,0,1,0]]
-            elif a == 4: action=[[0,0,0,0,1]]
+                # if a == 0: action=[[1,0,0,0,0]]
+                # elif a == 1: action=[[0,1,0,0,0]]
+                # elif a == 2: action=[[0,0,1,0,0]]
+                # elif a == 3: action=[[0,0,0,1,0]]
+                # elif a == 4: action=[[0,0,0,0,1]]
+
+                if a == 0: action.append([1,0,0,0,0])
+                elif a == 1: action.append([0,1,0,0,0])
+                elif a == 2: action.append([0,0,1,0,0])
+                elif a == 3: action.append([0,0,0,1,0])
+                elif a == 4: action.append([0,0,0,0,1])
 
             s_prime, r, done, info = env.step(action)
 
@@ -100,7 +110,7 @@ def evaluate_policy(env, model, render):
                 #print("DONE")
                 num_collision += info['n'][0]
                 #print("lalala:", num_collision)
-            s = s[0]
+            #s = s[0]
             if render:
                 env.render()
             #print("info", info)
@@ -185,38 +195,48 @@ def main():
     col_period = 0
     inter = []
     period = 0
+    num_agent = 1
+
     while total_steps < Max_train_steps:
         s, done, steps, ep_r = env.reset(), False, 0, 0
-        s = s[0]
+        #s = s[0]
 
         #done = done[0]
         '''Interact & trian'''
         while not done:
             traj_lenth += 1
             steps += 1
+            action = []
+            a_agent = []
+            pi_a_agent = []
             if render:
                 # a, pi_a = model.select_action(torch.from_numpy(s).float().to(device))  #stochastic policy
                 a, pi_a = model.evaluate(torch.from_numpy(s).float().to(device))  #deterministic policy
                 env.render()
             else:
-                a, pi_a = model.select_action(torch.from_numpy(s).float().to(device))
-            #print("action", a)
-            if a == 0: action=[[1,0,0,0,0]]
-            elif a == 1: action=[[0,1,0,0,0]]
-            elif a == 2: action=[[0,0,1,0,0]]
-            elif a == 3: action=[[0,0,0,1,0]]
-            elif a == 4: action=[[0,0,0,0,1]]
+                for i in range(num_agent):
+                    a, pi_a = model.select_action(torch.from_numpy(s[i]).float().to(device))
+                    a_agent.append(a)
+                    pi_a_agent.append(pi_a)
+                    if a == 0: action.append([1,0,0,0,0])
+                    elif a == 1: action.append([0,1,0,0,0])
+                    elif a == 2: action.append([0,0,1,0,0])
+                    elif a == 3: action.append([0,0,0,1,0])
+                    elif a == 4: action.append([0,0,0,0,1])
 
             s_prime, r, done, info = env.step(action)
-            
+            # print("action", action)
+            # print("r", r)
+            # print("s_prime", s_prime)
             #print("info", info)
 
             #print(done)
-            s_prime = s_prime[0]
 
-            r = r[0]
+            #s_prime = s_prime[0]
 
-            done = done[0]
+            #r = r[0]
+
+            #done = done[0]
             # if done == True:
             #     print("steps", steps)
             # if done:
@@ -229,10 +249,11 @@ def main():
             # else:
             #     dw = False
             dw = False
+            for i in range(num_agent):
+                model.put_data((s[i], a_agent[i], r[i], s_prime[i], pi_a_agent[i], done[i], dw))
 
-            model.put_data((s, a, r, s_prime, pi_a, done, dw))
             s = s_prime
-            ep_r += r
+            ep_r += r[0]
 
             '''update if its time'''
             #print("traj_lenth!", traj_lenth)
@@ -253,6 +274,8 @@ def main():
                 col_period += num_collision
 
                 if period == 5:
+                    if col_period > 200:
+                        col_period = col_period/20
                     collision_all.append(col_period)
                     inter.append(int(total_steps/1000))
                     period = 0
@@ -275,24 +298,24 @@ def main():
             #     model.save(total_steps)
     score_dict = {'steps': interval, 'scores': score_all}
     test1=pd.DataFrame(score_dict)
-    test1.to_csv("./result/scores_00_2_obs")
+    test1.to_csv("./result/scores_100_2_agent")
     plt.figure(1)
     plt.plot(interval, score_all)
-    plt.title('Averaged Scores with 0.0 Observability 2 Obstacles')
+    plt.title('Averaged Scores of 1.0 Observability with 2 Agents')
     plt.xlabel('total time steps')
     plt.ylabel('score')
-    plt.savefig("./result/figures/scores_00_2_obs")
+    plt.savefig("./result/figures/scores_100_2_agent")
 
     col_dict = {'steps': inter, 'col': collision_all}
     test2=pd.DataFrame(col_dict)
-    test2.to_csv("./result/col_00_2_obs")
+    test2.to_csv("./result/col_100_2_agent")
 
     plt.figure(2)
     plt.plot(inter, collision_all)
-    plt.title('Averaged Collision with 0.0 Observability 2 Obstacles')
+    plt.title('Averaged Collision of 1.0 Observability with 2 Agents')
     plt.xlabel('total time steps')
     plt.ylabel('number of collisions')
-    plt.savefig("./result/figures/col_00_2_obs")
+    plt.savefig("./result/figures/col_100_2_agent")
 
     env.close()
     eval_env.close()
